@@ -13,7 +13,7 @@ y=[
 ]
 
 l=.01
-epochs=100
+epochs=5
 
 layers=[
     nn.Model.InputLayer(2),
@@ -21,8 +21,16 @@ layers=[
     nn.Model.Layer(1,nn.sigmoid)
 ]
 model=nn.Model(layers)
-for e in range(1,epochs+1):
-    for ()
+
+for e in range(epochs):
+    for i in range(len(x)):
+        model.grads(x[i],y[i],nn.mse)
+        print(nn.mse(model.inference(x[i]),y[i],True))
+    model.update(l)
+
+
+
+
 
 
 

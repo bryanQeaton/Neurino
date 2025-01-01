@@ -78,7 +78,7 @@ class Model:
             for i in range(len(self.weights[0])):
                 self.value[i]=self.bias[i]
                 for j in range(len(self.weights)):
-                    self.value[i]+=x[i]*self.weights[j][i]
+                    self.value[i]+=x[j]*self.weights[j][i]
                 self.activation_value[i]=self.activation(self.value[i])
         def back(self,x,delta):
             for i in range(self.layer_size):
@@ -101,15 +101,12 @@ class Model:
             func=self._xavier_initializer
             if self.layers[i].activation(points[0])==relu(points[0]) and self.layers[i].activation(points[1])==relu(points[1]):
                 func=self._he_initializer
-            for j in range(self.layers[i-1].layer_size):
-                weights_=[]
-                for m in range(self.layers[i].layer_size):
-                    weights_.append(func(self.layers[i-1].layer_size,self.layers[i].layer_size))
-                    if j+1==self.layers[i-1].layer_size:
-                        self.layers[i].bias.append(func(self.layers[i-1].layer_size,self.layers[i].layer_size))
-                self.layers[i].weights.append(weights_)
-                self.layers[i].weight_grads.append([0.0]*self.layers[i].layer_size)
-            self.layers[i].bias_grads=[0.0]*self.layers[i].layer_size
+            in_size=self.layers[i-1].layer_size
+            out_size=self.layers[i].layer_size
+            self.layers[i].weights=[[func(in_size, out_size) for j in range(out_size)] for i in range(in_size)]
+            self.layers[i].weight_grads=[[0.0 for j in range(out_size)] for i in range(in_size)]
+            self.layers[i].bias=[func(in_size, out_size) for i in range(out_size)]
+            self.layers[i].bias_grads=[0.0 for i in range(out_size)]
     def inference(self,x):
         if len(x)!=self.layers[0].layer_size: raise ValueError("Model:Forward:input size doesn't match!")
         self.layers[0].activation_value=x
@@ -118,7 +115,7 @@ class Model:
         return self.layers[-1].activation_value
     def grads(self,x,y,error_func):
         self.inference(x)
-        delta=error_func(self.layers[-1].activation_value,y)
+        delta=error_func(self.layers[-1].value,y)
         for i in reversed(range(1, len(self.layers))):
             delta=self.layers[i].back(self.layers[i-1].activation_value,delta)
     def update(self,learning_rate):
