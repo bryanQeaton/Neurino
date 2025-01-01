@@ -22,7 +22,10 @@ def mse(y_pred,y_true,loss=False):
         for i in range(len(y_pred)):
             result[i]=y_pred[i]-y_true[i]
     else:
-        return sum(mse(y_pred, y_true))**2
+        result=mse(y_pred, y_true)
+        for i in range(len(result)):
+            result[i]=result[i]**2
+        return sum(result)
     return result
 class Model:
     class InputLayer:
@@ -34,6 +37,10 @@ class Model:
         bias=[]
         weight_grads=[]
         bias_grads=[]
+        weight_momentum=[]
+        bias_momentum=[]
+        weight_momentum_squared=[]
+        bias_momentum_squared=[]
         @staticmethod
         def _matmul(a, b):
             result=[[0.0 for _ in range(len(b[0]))] for _ in range(len(a))]
@@ -68,26 +75,34 @@ class Model:
                 if rot==1:
                     result.append(x)
             return result
-        def __init__(self,layer_size,activation):
+        def __init__(self,layer_size,activation,dropout=0.0,trainable=True):
             self.layer_size=layer_size
             self.value=[0.0]*layer_size
             self.activation_value=[0.0]*layer_size
             self.activation=activation
-        def forw(self,x):
+            self.dropout=dropout
+            self.trainable=trainable
+        def forw(self,x,dropout=0.0):
             for i in range(len(self.weights[0])):
                 self.value[i]=self.bias[i]
                 for j in range(len(self.weights)):
                     self.value[i]+=x[j]*self.weights[j][i]
                 self.activation_value[i]=self.activation(self.value[i])
+                if random.uniform(0,1)<=dropout:
+                    self.value[i]=0.0
+                    self.activation_value[i]=0.0
+                elif dropout!=0.0:
+                    self.value[i]/=dropout
         def back(self,x,delta):
             for i in range(self.layer_size):
                 delta[i]*=self.activation(self.value[i],True)
-            for i in range(len(delta)):
-                self.bias_grads[i]+=delta[i]
-            gradients=self._matmul(self._matrixconv(x, 0), self._matrixconv(delta, 1))
-            for i in range(len(x)):
-                for j in range(self.layer_size):
-                    self.weight_grads[i][j]+=gradients[i][j]
+            if self.trainable:
+                for i in range(len(delta)):
+                    self.bias_grads[i]+=delta[i]
+                gradients=self._matmul(self._matrixconv(x, 0), self._matrixconv(delta, 1))
+                for i in range(len(x)):
+                    for j in range(self.layer_size):
+                        self.weight_grads[i][j]+=gradients[i][j]
             return self._matrixconv(self._matmul(self.weights, self._matrixconv(delta, 0)))
     @staticmethod
     def _he_initializer(in_size, buffer):
@@ -110,17 +125,20 @@ class Model:
             self.layers[i].weight_grads=[[0.0 for _ in range(out_size)] for i in range(in_size)]
             self.layers[i].bias=[func(in_size, out_size) for i in range(out_size)]
             self.layers[i].bias_grads=[0.0 for i in range(out_size)]
+            self.layers[i].weight_momentum=[[func(in_size, out_size) for _ in range(out_size)] for i in range(in_size)]
+            self.layers[i].bias_momentum=[func(in_size, out_size) for i in range(out_size)]
     def inference(self,x):
         if len(x)!=self.layers[0].layer_size: raise ValueError("Model:Forward:input size doesn't match!")
         self.layers[0].activation_value=x
         for i in range(1,len(self.layers)):
-            self.layers[i].forw(self.layers[i-1].activation_value)
+            self.layers[i].forw(self.layers[i-1].activation_value,self.layers[i].dropout)
         return self.layers[-1].activation_value
     def grads(self,x,y,error_func):
         self.inference(x)
-        delta=error_func(self.layers[-1].value,y)
+        delta=error_func(self.layers[-1].activation_value,y)
         for i in reversed(range(1, len(self.layers))):
             delta=self.layers[i].back(self.layers[i-1].activation_value,delta)
+        return delta
     def update(self,learning_rate):
         for i in range(1,len(self.layers)):
             for j in range(0,self.layers[i-1].layer_size):
@@ -132,7 +150,7 @@ class Model:
                 self.layers[i].bias_grads[m]=0.0
     def stochastic_batch_gradient_descent(self, x_train, y_train, x_val, y_val, batch_size, error_func, learning_rate, epochs, early_stopping_tolerance=5, verbose=True):
         loss_min=2**16
-        c=0
+        early_stopping_counter=0
         stop_early=False
         best_model=self.layers
         for e in range(epochs):
@@ -150,19 +168,14 @@ class Model:
                         loss_min=loss
                         best_model=self.layers
                     if loss_min==loss_min_orig:
-                        c+=1
+                        early_stopping_counter+=1
                     elif loss_min<loss_min_orig:
-                        c=0
-                    if c==early_stopping_tolerance and early_stopping_tolerance!=0:
+                        early_stopping_counter=0
+                    if early_stopping_counter==early_stopping_tolerance and early_stopping_tolerance!=0:
                         stop_early=True
                         break
                     if verbose:
-                        print("loss:",loss)
+                        print("validation loss:",loss)
             if stop_early:
                 break
         self.layers=best_model
-
-
-
-
-
