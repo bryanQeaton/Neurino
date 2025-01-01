@@ -5,7 +5,4 @@ Lightweight Zero Dependency neural network library.
 
  - Cross-compatibility with C++ variant
  - Model saving/loading
- - Additional Layer controls: dropout, trainable
- - More activation functions
- - More losses
- - Standard optimizer implementations
+
