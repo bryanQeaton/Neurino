@@ -24,7 +24,6 @@ def mse(y_pred,y_true,loss=False):
     else:
         return sum(mse(y_pred, y_true))**2
     return result
-
 class Model:
     class InputLayer:
         def __init__(self,layer_size):
@@ -83,8 +82,12 @@ class Model:
         def back(self,x,delta):
             for i in range(self.layer_size):
                 delta[i]*=self.activation(self.value[i],True)
-            self.bias_grads+=delta
-            self.weight_grads+=self._matmul(self._matrixconv(x, 0), self._matrixconv(delta, 1))
+            for i in range(len(delta)):
+                self.bias_grads[i]+=delta[i]
+            gradients=self._matmul(self._matrixconv(x, 0), self._matrixconv(delta, 1))
+            for i in range(len(x)):
+                for j in range(self.layer_size):
+                    self.weight_grads[i][j]+=gradients[i][j]
             return self._matrixconv(self._matmul(self.weights, self._matrixconv(delta, 0)))
     @staticmethod
     def _he_initializer(in_size, buffer):
@@ -103,8 +106,8 @@ class Model:
                 func=self._he_initializer
             in_size=self.layers[i-1].layer_size
             out_size=self.layers[i].layer_size
-            self.layers[i].weights=[[func(in_size, out_size) for j in range(out_size)] for i in range(in_size)]
-            self.layers[i].weight_grads=[[0.0 for j in range(out_size)] for i in range(in_size)]
+            self.layers[i].weights=[[func(in_size, out_size) for _ in range(out_size)] for i in range(in_size)]
+            self.layers[i].weight_grads=[[0.0 for _ in range(out_size)] for i in range(in_size)]
             self.layers[i].bias=[func(in_size, out_size) for i in range(out_size)]
             self.layers[i].bias_grads=[0.0 for i in range(out_size)]
     def inference(self,x):
@@ -127,4 +130,29 @@ class Model:
             for m in range(0,self.layers[i].layer_size):
                 self.layers[i].bias[m]-=self.layers[i].bias_grads[m]*learning_rate
                 self.layers[i].bias_grads[m]=0.0
-
+    def stochastic_gradient_descent(self, x, y, x_val, y_val, error_func, learning_rate, epochs, early_stopping_tolerance=5, verbose=True):
+        loss_min=2**16
+        c=0
+        stop_early=False
+        for e in range(epochs):
+            for i in range(len(x)):
+                self.grads(x[i],y[i],error_func)
+                self.update(learning_rate)
+                loss=0.0
+                for j in range(len(x_val)):
+                    y_pred=self.inference(x_val[j])
+                    loss+=mse(y_pred,y_val[j],True)
+                loss/=len(x_val)
+                loss_min_orig=loss_min
+                loss_min=min(loss,loss_min)
+                if loss_min==loss_min_orig:
+                    c+=1
+                elif loss_min<loss_min_orig:
+                    c=0
+                if c==early_stopping_tolerance and early_stopping_tolerance!=0:
+                    stop_early=True
+                    break
+                if verbose:
+                    print("loss:",loss)
+            if stop_early:
+                break
