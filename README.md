@@ -1,5 +1,5 @@
 # **Neurino:**
-Lightweight neural network library.
+Lightweight Zero Dependency neural network library.
 
 ## Future Plans:
 
