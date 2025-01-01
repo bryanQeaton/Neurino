@@ -130,36 +130,6 @@ class Model:
             for m in range(0,self.layers[i].layer_size):
                 self.layers[i].bias[m]-=self.layers[i].bias_grads[m]*learning_rate
                 self.layers[i].bias_grads[m]=0.0
-    def stochastic_gradient_descent(self, x_train, y_train, x_val, y_val, error_func, learning_rate, epochs, early_stopping_tolerance=5, verbose=True):
-        loss_min=2**16
-        c=0
-        stop_early=False
-        best_model=self.layers
-        for e in range(epochs):
-            for i in range(len(x_train)):
-                self.grads(x_train[i], y_train[i], error_func)
-                self.update(learning_rate)
-                loss=0.0
-                for j in range(len(x_val)):
-                    y_pred=self.inference(x_val[j])
-                    loss+=mse(y_pred,y_val[j],True)
-                loss/=len(x_val)
-                loss_min_orig=loss_min
-                if loss_min>loss:
-                    loss_min=loss
-                    best_model=self.layers
-                if loss_min==loss_min_orig:
-                    c+=1
-                elif loss_min<loss_min_orig:
-                    c=0
-                if c==early_stopping_tolerance and early_stopping_tolerance!=0:
-                    stop_early=True
-                    break
-                if verbose:
-                    print("loss:",loss)
-            if stop_early:
-                break
-        self.layers=best_model
     def stochastic_batch_gradient_descent(self, x_train, y_train, x_val, y_val, batch_size, error_func, learning_rate, epochs, early_stopping_tolerance=5, verbose=True):
         loss_min=2**16
         c=0
