@@ -126,6 +126,8 @@ class Model:
             for j in range(0,self.layers[i-1].layer_size):
                 for m in range(0,self.layers[i].layer_size):
                     self.layers[i].weights[j][m]-=self.layers[i].weight_grads[j][m]*learning_rate
+                    self.layers[i].weight_grads[j][m]=0.0
             for m in range(0,self.layers[i].layer_size):
                 self.layers[i].bias[m]-=self.layers[i].bias_grads[m]*learning_rate
+                self.layers[i].bias_grads[m]=0.0
 
